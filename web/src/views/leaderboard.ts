@@ -7,7 +7,6 @@ import { topSlices } from '../softmax';
 import type { ModelJson } from '../types';
 import {
   escapeHtml,
-  formatMultiplier,
   formatNumber,
   formatRelative,
   formatScore,
@@ -25,10 +24,6 @@ function initialTemp(config: { softmax_temp: number } | null): number {
 
 function readout(temp: number): string {
   return t('home.pie_temp', { temp });
-}
-
-function scaleHint(temp: number): string {
-  return t('home.pie_scale', { mult: formatMultiplier(temp) });
 }
 
 export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
@@ -57,7 +52,6 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
           <div class="temp-control">
             <span class="temp-readout"></span>
             <input class="temp-slider" type="range" min="1" max="100" step="1" aria-label="T" />
-            <span class="temp-scale"></span>
           </div>
         </div>
         <div class="pie-wrap">
@@ -101,7 +95,6 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
   const pieHint = mustFind<HTMLElement>(root, '.pie-hint');
   const slider = mustFind<HTMLInputElement>(root, '.temp-slider');
   const readoutEl = mustFind<HTMLElement>(root, '.temp-readout');
-  const scaleEl = mustFind<HTMLElement>(root, '.temp-scale');
   const tbody = mustFind<HTMLElement>(root, 'tbody');
   const emptyRow = mustFind<HTMLElement>(root, '.table-empty');
 
@@ -109,7 +102,6 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
   // full re-render (a full re-render would drop the table filters and the scroll position).
   const drawPie = (value: number) => {
     readoutEl.textContent = readout(value);
-    scaleEl.textContent = scaleHint(value);
     if (models.length === 0) {
       pieHost.innerHTML = '';
       legend.innerHTML = '';

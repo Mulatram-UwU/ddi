@@ -29,7 +29,6 @@ export const zhCN: Record<MessageKey, string> = {
     '每账号每模型每 24 小时一票，带半衰期加权，压缩到 −100…+100。',
   'home.pie_title': '心智份额 · DDI softmax',
   'home.pie_temp': 'T = {temp}',
-  'home.pie_scale': '10 分差 ≈ {mult} 倍权重',
   'home.pie_other': '其他 ({count})',
   'home.pie_uniform': '当前所有模型 DDI 相同，份额为均匀分布。',
   'home.pie_empty': '还没有任何模型。',

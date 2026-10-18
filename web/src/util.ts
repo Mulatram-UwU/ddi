@@ -55,7 +55,3 @@ export function formatDuration(ms: number): string {
   const seconds = total % 60;
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
 }
-
-export function formatMultiplier(temp: number): string {
-  return Math.exp(10 / Math.max(1, temp)).toFixed(1);
-}

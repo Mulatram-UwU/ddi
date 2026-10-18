@@ -27,7 +27,6 @@ export const enUS = {
     'A votable model index: one vote per account per model per 24 hours, half-life decayed and compressed into −100…+100.',
   'home.pie_title': 'Mind share · DDI softmax',
   'home.pie_temp': 'T = {temp}',
-  'home.pie_scale': '10-point gap ≈ {mult}× weight',
   'home.pie_other': 'Others ({count})',
   'home.pie_uniform': 'Every model currently has the same DDI, so the shares are uniform.',
   'home.pie_empty': 'No models yet.',
