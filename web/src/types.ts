@@ -11,7 +11,6 @@ export interface ModelJson {
   provider: string;
   description: string | null;
   homepage_url: string | null;
-  sort_order: number;
   score: number;
   net: number;
   weight: number;
@@ -71,7 +70,6 @@ export interface AdminModelJson {
   description: string | null;
   homepage_url: string | null;
   is_active: number;
-  sort_order: number;
   created_at: string;
 }
 

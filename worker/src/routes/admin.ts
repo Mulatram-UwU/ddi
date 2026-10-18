@@ -41,11 +41,10 @@ export function adminRoutes(app: Hono<AppBindings>): void {
     }
 
     const now = new Date().toISOString();
-    const sortOrder = Number.isFinite(Number(body?.sort_order)) ? Number(body?.sort_order) : 0;
     try {
       const created = await c.env.DB.prepare(
-        `INSERT INTO models (slug, name, provider, description, homepage_url, is_active, sort_order, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        `INSERT INTO models (slug, name, provider, description, homepage_url, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       )
         .bind(
           slug,
@@ -54,7 +53,6 @@ export function adminRoutes(app: Hono<AppBindings>): void {
           textOrNull(body?.description),
           textOrNull(body?.homepage_url),
           flag(body?.is_active, 1),
-          sortOrder,
           now,
         )
         .first<{ id: number }>();
@@ -92,14 +90,11 @@ export function adminRoutes(app: Hono<AppBindings>): void {
       description: 'description' in body ? textOrNull(body.description) : existing.description,
       homepage_url: 'homepage_url' in body ? textOrNull(body.homepage_url) : existing.homepage_url,
       is_active: flag(body.is_active, existing.is_active),
-      sort_order: Number.isFinite(Number(body.sort_order))
-        ? Number(body.sort_order)
-        : existing.sort_order,
     };
 
     await c.env.DB.prepare(
       `UPDATE models SET name = ?, provider = ?, description = ?, homepage_url = ?,
-         is_active = ?, sort_order = ? WHERE id = ?`,
+         is_active = ? WHERE id = ?`,
     )
       .bind(
         next.name,
@@ -107,7 +102,6 @@ export function adminRoutes(app: Hono<AppBindings>): void {
         next.description,
         next.homepage_url,
         next.is_active,
-        next.sort_order,
         next.id,
       )
       .run();

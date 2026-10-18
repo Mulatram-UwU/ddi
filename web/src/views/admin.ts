@@ -36,7 +36,6 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
             <div class="field"><label for="f-name">${escapeHtml(t('admin.name'))}</label><input id="f-name" name="name" required /></div>
             <div class="field"><label for="f-provider">${escapeHtml(t('admin.provider'))}</label><input id="f-provider" name="provider" required /></div>
             <div class="field"><label for="f-homepage">${escapeHtml(t('admin.homepage_url'))}</label><input id="f-homepage" name="homepage_url" /></div>
-            <div class="field"><label for="f-sort">${escapeHtml(t('admin.sort_order'))}</label><input id="f-sort" name="sort_order" type="number" value="0" /></div>
             <div class="field"><label for="f-active">${escapeHtml(t('admin.is_active'))}</label><input id="f-active" name="is_active" type="checkbox" checked /></div>
           </div>
           <div class="field"><label for="f-description">${escapeHtml(t('admin.description'))}</label><textarea id="f-description" name="description" rows="2"></textarea></div>
@@ -55,7 +54,6 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
               <th>${escapeHtml(t('admin.slug'))}</th>
               <th>${escapeHtml(t('admin.name'))}</th>
               <th>${escapeHtml(t('admin.provider'))}</th>
-              <th class="num">${escapeHtml(t('admin.sort_order'))}</th>
               <th>${escapeHtml(t('admin.is_active'))}</th>
               <th>${escapeHtml(t('admin.actions'))}</th>
             </tr>
@@ -86,7 +84,6 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
   const resetForm = () => {
     state.editing = null;
     form.reset();
-    field('sort_order').value = '0';
     mustFind<HTMLInputElement>(form, '[name="is_active"]').checked = true;
     formTitle.textContent = t('admin.new');
     submitButton.textContent = t('common.create');
@@ -102,7 +99,6 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
           <td>${escapeHtml(model.slug)}</td>
           <td>${escapeHtml(model.name)}</td>
           <td>${escapeHtml(model.provider)}</td>
-          <td class="num">${model.sort_order}</td>
           <td>${model.is_active ? '✓' : '✗'}</td>
           <td class="actions">
             <button class="edit" data-slug="${escapeHtml(model.slug)}">${escapeHtml(t('common.edit'))}</button>
@@ -132,7 +128,6 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
         provider: field('provider').value.trim(),
         description: field('description').value.trim(),
         homepage_url: field('homepage_url').value.trim(),
-        sort_order: Number(field('sort_order').value) || 0,
         is_active: mustFind<HTMLInputElement>(form, '[name="is_active"]').checked,
       };
       try {
@@ -197,7 +192,6 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
           field('provider').value = model.provider;
           field('description').value = model.description ?? '';
           field('homepage_url').value = model.homepage_url ?? '';
-          field('sort_order').value = String(model.sort_order);
           mustFind<HTMLInputElement>(form, '[name="is_active"]').checked = model.is_active === 1;
           formTitle.textContent = `${t('common.edit')}: ${model.name}`;
           submitButton.textContent = t('common.save');

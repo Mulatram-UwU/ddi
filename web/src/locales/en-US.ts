@@ -69,7 +69,6 @@ export const enUS = {
   'admin.description': 'Description',
   'admin.homepage_url': 'Homepage URL',
   'admin.is_active': 'Active',
-  'admin.sort_order': 'Sort order',
   'admin.actions': 'Actions',
   'admin.rescore': 'Rebuild aggregates (rescore)',
   'admin.rescore_done': 'Rebuilt {count} models.',

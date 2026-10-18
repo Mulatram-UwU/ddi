@@ -9,7 +9,6 @@ export interface ModelRow {
   description: string | null;
   homepage_url: string | null;
   is_active: number;
-  sort_order: number;
   created_at: string;
 }
 
@@ -42,7 +41,6 @@ export interface ModelJson {
   provider: string;
   description: string | null;
   homepage_url: string | null;
-  sort_order: number;
   score: number;
   net: number;
   weight: number;
@@ -64,7 +62,7 @@ export async function loadModels(
 ): Promise<ModelRow[]> {
   const where = opts.includeInactive ? '' : 'WHERE is_active = 1';
   const result = await db
-    .prepare(`SELECT * FROM models ${where} ORDER BY sort_order ASC, name ASC`)
+    .prepare(`SELECT * FROM models ${where} ORDER BY name ASC`)
     .all<ModelRow>();
   return result.results ?? [];
 }
@@ -164,7 +162,6 @@ export function serializeModel(
     provider: row.provider,
     description: row.description,
     homepage_url: row.homepage_url,
-    sort_order: row.sort_order,
     score,
     net: Math.round(decayed.net * 10000) / 10000,
     weight: Math.round(decayed.weight * 10000) / 10000,
@@ -180,12 +177,11 @@ export function serializeModel(
 }
 
 export function sortModels(models: ModelJson[]): ModelJson[] {
+  // score -> weight -> name. The name tie-break is the deliberate final word: models the data
+  // cannot separate (every score 0.0 on a fresh registry) come out in dictionary order.
   return models.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     if (b.weight !== a.weight) return b.weight - a.weight;
-    // The administrator's curated order decides between models the data cannot separate (every
-    // score is 0.0 on an empty registry), so `sort_order` must land before the name tie-break.
-    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
     return a.name.localeCompare(b.name);
   });
 }

@@ -71,7 +71,6 @@ export const zhCN: Record<MessageKey, string> = {
   'admin.description': '描述',
   'admin.homepage_url': '官网地址',
   'admin.is_active': '启用',
-  'admin.sort_order': '排序权重',
   'admin.actions': '操作',
   'admin.rescore': '重建聚合 (rescore)',
   'admin.rescore_done': '已重建 {count} 个模型。',
