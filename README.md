@@ -159,7 +159,8 @@ First-time setup:
    homepage `https://ddi.mulatram.dev/`, callback
    `https://ddi.mulatram.dev/api/auth/github/callback` — plus a second callback
    `http://localhost:8787/api/auth/github/callback` for local development. Both must match byte for
-   byte; the redirect URI is built from `DDI_WORKER_ORIGIN`.
+   byte; the redirect URI is built from `DDI_WORKER_ORIGIN`. For the app logo, upload
+   `branding/icon-500.png` (raster; GitHub does not accept `web/public/icon.svg`).
 5. Repo settings → Secrets → Actions: `CLOUDFLARE_API_TOKEN` (needs *Account · Workers Scripts ·
    Edit*, *Account · D1 · Edit*, *Account · Account Settings · Read*, *User · User Details · Read*)
    and `CLOUDFLARE_ACCOUNT_ID`. No variables are needed: production is same-origin, so the frontend
