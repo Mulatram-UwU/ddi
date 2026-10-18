@@ -1,11 +1,23 @@
-name = "ddi-api"
+name = "ddi"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"
+
+# The Worker serves the built frontend as well as the API, so production is a single origin:
+# no CORS preflights, no separate static host to keep in sync, and the OAuth `#token=` hand-off
+# never crosses an origin boundary. Build the site (`npm run build` at the repo root) before
+# `wrangler deploy` — this directory must exist at deploy time.
+[assets]
+directory = "../web/dist"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "ddi"
-database_id = "REPLACE_ME"
+database_id = "46c32aba-f853-4436-b744-c8bc8b2e5084"
+
+# Custom domain: wrangler creates the DNS record and certificate on deploy.
+[[routes]]
+pattern = "ddi.mulatram.dev"
+custom_domain = true
 
 [vars]
 DDI_HALF_LIFE_HOURS = "8"
@@ -18,9 +30,9 @@ DDI_SNAPSHOT_BUCKET_MINUTES = "10"
 DDI_SNAPSHOT_RETENTION_DAYS = "90"
 DDI_SOFTMAX_TEMP = "10"
 DDI_TURNSTILE_SITE_KEY = "REPLACE_ME"   # Cloudflare Turnstile site key; secret goes in via `wrangler secret put TURNSTILE_SECRET_KEY`
-DDI_WORKER_ORIGIN = "https://ddi-api.REPLACE_ME.workers.dev"
-DDI_WEB_ORIGIN = "https://REPLACE_ME.github.io/ddi"
-DDI_ALLOWED_ORIGINS = "https://REPLACE_ME.github.io"
+DDI_WORKER_ORIGIN = "https://ddi.mulatram.dev"
+DDI_WEB_ORIGIN = "https://ddi.mulatram.dev"
+DDI_ALLOWED_ORIGINS = "https://ddi.mulatram.dev"
 DDI_ADMIN_GITHUB_IDS = "249746087"
 
 [triggers]

@@ -7,8 +7,12 @@ import type {
   ModelJson,
 } from './types';
 
+// Production is same-origin: the Worker serves this bundle from `ddi.mulatram.dev` and answers
+// `/api/*` itself, so a relative base is the correct default. Local dev runs Vite on :5173 against
+// a separate `wrangler dev` on :8787, which is cross-origin and needs the absolute base.
 export const API_BASE: string =
-  (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:8787';
+  (import.meta.env.VITE_API_BASE as string | undefined) ??
+  (import.meta.env.DEV ? 'http://localhost:8787' : '');
 
 export class ApiError extends Error {
   readonly code: string;

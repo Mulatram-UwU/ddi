@@ -14,7 +14,9 @@ pᵢ = exp(DDIᵢ / T) / Σⱼ exp(DDIⱼ / T)  # homepage "mind share" pie
 ```
 
 - API: Cloudflare Workers + D1 (Hono router, raw SQL, no ORM).
-- Frontend: static site for GitHub Pages (Vite + vanilla TypeScript, hash routing, no runtime deps).
+- Frontend: a Vite-built static bundle (vanilla TypeScript, hash routing, no runtime deps) served by
+  the same Worker on the same custom domain, `ddi.mulatram.dev`. Single origin in production means
+  no CORS, no cross-site cookie problems, and the OAuth `#token=` hand-off never leaves the origin.
 - Auth: GitHub OAuth. Accounts younger than 90 days may sign in and browse but cannot vote.
 - Model registry: administrator-only (`DDI_ADMIN_GITHUB_IDS`), no roles table.
 - Snapshots: one cron run every 10 minutes stores each model's score for the 24h sparkline and the
@@ -33,12 +35,12 @@ worker/                 Cloudflare Worker + D1
   migrations/0001_init.sql, 0002_snapshots.sql
   scripts/seed-models.sql, dev-stub-accounts.sql
   wrangler.toml, .dev.vars.example
-web/                    static frontend
+web/                    Vite frontend, built to web/dist and served by the Worker
   src/{main,api,session,i18n,softmax,chart,util,dom,types,app-context}.ts
   src/locales/{en-US,zh-CN,index}.ts
   src/views/{leaderboard,model,admin,about}.ts
   src/style.css, index.html, vite.config.ts
-.github/workflows/      deploy-worker.yml, deploy-pages.yml
+.github/workflows/      deploy.yml
 ```
 
 ## Local development
@@ -63,6 +65,10 @@ npx wrangler d1 execute ddi --local --file scripts/dev-stub-accounts.sql
 cp .dev.vars.example .dev.vars        # fill in GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
 npx wrangler dev --test-scheduled     # http://localhost:8787
 ```
+
+`npm run dev:api` from the repo root builds the site first (`predev`) and serves everything from
+`:8787` — the built asset bundle and `/api/*` on one origin, exactly like production. Rebuild after
+frontend changes, or use the Vite dev server below for hot reload.
 
 `.dev.vars` ships with placeholder OAuth credentials, so GitHub sign-in does not work out of the
 box — GitHub answers an unknown client id with its own **page not found** at `/login/oauth/authorize`.
@@ -124,9 +130,9 @@ half-configured deploy keeps working instead of locking everyone out.
 
 For production: create a Turnstile site (Cloudflare dashboard → Turnstile), put the site key in
 `wrangler.toml` `DDI_TURNSTILE_SITE_KEY`, the secret in
-`npx wrangler secret put TURNSTILE_SECRET_KEY`, and add the Pages hostname to the site's domain list.
-The widget script is the only third-party script on the site and is loaded on the model page only —
-the leaderboard never fetches it.
+`npx wrangler secret put TURNSTILE_SECRET_KEY`, and add `ddi.mulatram.dev` to the site's hostname
+list. The widget script is the only third-party script on the site and is loaded on the model page
+only — the leaderboard never fetches it.
 
 ### Tests
 
@@ -137,19 +143,40 @@ npm run typecheck # worker + web (tsc --noEmit)
 
 ## Deploy
 
-1. `npx wrangler login` and `cd worker && npx wrangler d1 create ddi`; put the returned
-   `database_id` into `wrangler.toml`.
+One Worker serves the API and the site on `https://ddi.mulatram.dev`, so a deploy is a single
+`wrangler deploy` that also registers the custom domain, the cron trigger and the built assets.
+
+First-time setup:
+
+1. `cd worker && npx wrangler d1 create ddi`; put the returned `database_id` into `wrangler.toml`
+   (already done for this repo).
 2. Apply migrations and seed remotely:
    `npx wrangler d1 migrations apply ddi --remote`,
    `npx wrangler d1 execute ddi --remote --file scripts/seed-models.sql`.
-3. GitHub OAuth App: homepage `https://<user>.github.io/ddi/`, callback
-   `https://ddi-api.<subdomain>.workers.dev/api/auth/github/callback` (plus a second callback
-   `http://localhost:8787/api/auth/github/callback` for local dev).
-4. `npx wrangler secret put GITHUB_CLIENT_ID` and `… GITHUB_CLIENT_SECRET`.
-5. Repo settings: Pages source = GitHub Actions; Actions secrets `CLOUDFLARE_API_TOKEN`,
-   `CLOUDFLARE_ACCOUNT_ID`; Actions variable `DDI_API_BASE`.
-6. Fill `DDI_WORKER_ORIGIN`, `DDI_WEB_ORIGIN`, `DDI_ALLOWED_ORIGINS` and `DDI_ADMIN_GITHUB_IDS` in
-   `wrangler.toml` `[vars]`.
+3. Secrets: `npx wrangler secret put GITHUB_CLIENT_ID` and `… GITHUB_CLIENT_SECRET`
+   (`TURNSTILE_SECRET_KEY` too, once you have a real Turnstile site).
+4. GitHub OAuth App (Settings → Developer settings → OAuth Apps):
+   homepage `https://ddi.mulatram.dev/`, callback
+   `https://ddi.mulatram.dev/api/auth/github/callback` — plus a second callback
+   `http://localhost:8787/api/auth/github/callback` for local development. Both must match byte for
+   byte; the redirect URI is built from `DDI_WORKER_ORIGIN`.
+5. Repo settings → Secrets → Actions: `CLOUDFLARE_API_TOKEN` (needs *Account · Workers Scripts ·
+   Edit*, *Account · D1 · Edit*, *Account · Account Settings · Read*, *User · User Details · Read*)
+   and `CLOUDFLARE_ACCOUNT_ID`. No variables are needed: production is same-origin, so the frontend
+   is built with a relative API base.
+
+Then any push to `main` that touches `worker/**` or `web/**` runs `.github/workflows/deploy.yml`
+(typecheck → tests → build → remote migrations → deploy).
+
+Manual deploy from a checkout:
+
+```bash
+npm run deploy:api    # builds the site, then `wrangler deploy` in worker/
+```
+
+`wrangler.toml` `[assets]` points at `web/dist`, so that directory must exist before any
+`wrangler dev` or `wrangler deploy` — the `predev` script builds it for you, and a missing directory
+is a hard error rather than an empty site.
 
 ### Free-tier budget
 
