@@ -1,0 +1,27 @@
+name = "ddi-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ddi"
+database_id = "REPLACE_ME"
+
+[vars]
+DDI_HALF_LIFE_HOURS = "8"
+DDI_SCORE_ALPHA = "3"
+DDI_K_MIN = "3"
+DDI_VOTE_COOLDOWN_HOURS = "24"
+DDI_MIN_GITHUB_AGE_DAYS = "90"
+DDI_SESSION_TTL_DAYS = "30"
+DDI_SNAPSHOT_BUCKET_MINUTES = "10"
+DDI_SNAPSHOT_RETENTION_DAYS = "90"
+DDI_SOFTMAX_TEMP = "10"
+DDI_TURNSTILE_SITE_KEY = "REPLACE_ME"   # Cloudflare Turnstile site key; secret goes in via `wrangler secret put TURNSTILE_SECRET_KEY`
+DDI_WORKER_ORIGIN = "https://ddi-api.REPLACE_ME.workers.dev"
+DDI_WEB_ORIGIN = "https://REPLACE_ME.github.io/ddi"
+DDI_ALLOWED_ORIGINS = "https://REPLACE_ME.github.io"
+DDI_ADMIN_GITHUB_IDS = "249746087"
+
+[triggers]
+crons = ["*/10 * * * *"]
