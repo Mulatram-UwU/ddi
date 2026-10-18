@@ -11,6 +11,7 @@ export interface ModelJson {
   provider: string;
   description: string | null;
   homepage_url: string | null;
+  sort_order: number;
   score: number;
   net: number;
   weight: number;

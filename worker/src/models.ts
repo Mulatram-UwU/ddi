@@ -42,6 +42,7 @@ export interface ModelJson {
   provider: string;
   description: string | null;
   homepage_url: string | null;
+  sort_order: number;
   score: number;
   net: number;
   weight: number;
@@ -163,6 +164,7 @@ export function serializeModel(
     provider: row.provider,
     description: row.description,
     homepage_url: row.homepage_url,
+    sort_order: row.sort_order,
     score,
     net: Math.round(decayed.net * 10000) / 10000,
     weight: Math.round(decayed.weight * 10000) / 10000,
@@ -181,6 +183,9 @@ export function sortModels(models: ModelJson[]): ModelJson[] {
   return models.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     if (b.weight !== a.weight) return b.weight - a.weight;
+    // The administrator's curated order decides between models the data cannot separate (every
+    // score is 0.0 on an empty registry), so `sort_order` must land before the name tie-break.
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
     return a.name.localeCompare(b.name);
   });
 }
