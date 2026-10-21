@@ -48,7 +48,7 @@ describe('formatShares', () => {
 describe('topSlices', () => {
   const label = (count: number) => `others:${count}`;
 
-  it('keeps every model when there are at most ten', () => {
+  it('keeps every model when there are fewer than the limit', () => {
     const slices = topSlices(['a', 'b'], [30, 0], 10, label);
     expect(slices).toHaveLength(2);
     expect(slices[0].label).toBe('a');
@@ -56,14 +56,14 @@ describe('topSlices', () => {
     expect(slices[1].score).toBe(0);
   });
 
-  it('merges the tail into one muted slice above ten models', () => {
-    const names = Array.from({ length: 12 }, (_, index) => `m${index}`);
-    const scores = names.map((_, index) => 30 - index * 5);
+  it('merges the tail only above the slice limit', () => {
+    const names = Array.from({ length: 26 }, (_, index) => `m${index}`);
+    const scores = names.map((_, index) => 30 - index * 2);
     const slices = topSlices(names, scores, 10, label);
-    expect(slices).toHaveLength(11);
-    expect(slices[10].label).toBe('others:2');
-    expect(slices[10].color).toBe('var(--muted)');
-    expect(slices[10].score).toBeNull();
+    expect(slices).toHaveLength(25);
+    expect(slices[24].label).toBe('others:2');
+    expect(slices[24].color).toBe('color-mix(in srgb, var(--muted) 45%, var(--surface))');
+    expect(slices[24].score).toBeNull();
     expect(sumOf(slices.map((slice) => slice.pct))).toBe(1000);
   });
 });

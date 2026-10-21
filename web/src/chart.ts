@@ -2,19 +2,18 @@ import { t } from './i18n';
 import type { HistoryPoint } from './types';
 import { escapeHtml } from './util';
 
-// One hue instead of a rainbow: wedges are stepped blends between two theme-provided endpoints
-// (--ramp-strong → --ramp-weak), so every wedge stays visible in both themes and the only neutral
-// slice is "others". Steps are deliberately wider at the head, where identification matters.
-const RAMP_STEPS = [100, 74, 56, 44, 36, 29, 24, 20, 17, 14, 11, 9];
+// One hue instead of a rainbow: wedges are blends between two theme-provided endpoints
+// (--ramp-strong → --ramp-weak), spread evenly across the number of displayed slices so any
+// registry size gets distinct steps. The only neutral slice is the merged "others".
+const RAMP_HEAD = 100;
+const RAMP_TAIL = 8;
 
-export const PIE_COLORS = RAMP_STEPS.map(
-  (pct) => `color-mix(in oklab, var(--ramp-strong) ${pct}%, var(--ramp-weak))`,
-);
+export const PIE_MUTED_COLOR = 'color-mix(in srgb, var(--muted) 45%, var(--surface))';
 
-export const PIE_MUTED_COLOR = 'var(--muted)';
-
-export function pieColor(index: number): string {
-  return PIE_COLORS[index % PIE_COLORS.length];
+export function pieColor(index: number, total: number): string {
+  const pct =
+    total <= 1 ? RAMP_HEAD : RAMP_HEAD - ((RAMP_HEAD - RAMP_TAIL) * index) / (total - 1);
+  return `color-mix(in oklab, var(--ramp-strong) ${pct.toFixed(1)}%, var(--ramp-weak))`;
 }
 
 export interface PieSlice {
@@ -131,16 +130,16 @@ export function pieChart(slices: PieSlice[], opts: PieChartOptions): string {
     y: center + radius * Math.sin(angle),
   });
 
-  // Wedges are separated by a page-coloured hairline: the ring keeps neighbouring steps of the ink
-  // ramp visually distinct without introducing borders or shadows.
-  const sep = ` stroke="var(--bg)" stroke-width="2"`;
+  // Wedges are separated by a surface-coloured hairline: the ring keeps neighbouring steps of the
+  // ink ramp visually distinct without introducing borders or shadows.
+  const sep = ` stroke="var(--surface)" stroke-width="1"`;
 
   let sweepTotal = 0;
   let paths = '';
   for (let index = 0; index < visible.length; index += 1) {
     const slice = visible[index];
     const sweep = (slice.share / total) * Math.PI * 2;
-    const color = slice.color ?? pieColor(index);
+    const color = slice.color ?? pieColor(index, visible.length);
     const title = `<title>${escapeHtml(slice.label)}: ${escapeHtml(slice.pct)}%</title>`;
     // A single slice (or one taking the whole circle) degenerates into an arc with coincident
     // endpoints, which renders blank — draw an explicit circle instead.
@@ -160,5 +159,5 @@ export function pieChart(slices: PieSlice[], opts: PieChartOptions): string {
       `fill="${color}"${sep}>${title}</path>`;
     sweepTotal += sweep;
   }
-  return `${open}${paths}</svg>`;
+  return `${open}${paths}<circle class="pie-hole" cx="${center}" cy="${center}" r="${(radius * 0.62).toFixed(3)}" /></svg>`;
 }

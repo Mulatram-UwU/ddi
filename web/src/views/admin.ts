@@ -48,6 +48,7 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
       </section>
 
       <section class="card">
+        <div class="table-wrap">
         <table>
           <thead>
             <tr>
@@ -60,6 +61,7 @@ export async function adminView(ctx: AppContext): Promise<HTMLElement> {
           </thead>
           <tbody></tbody>
         </table>
+        </div>
       </section>
     </div>
   `);

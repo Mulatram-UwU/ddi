@@ -41,7 +41,7 @@ export function topSlices(
   scores: number[],
   temp: number,
   otherLabel: (count: number) => string,
-  limit = 10,
+  limit = 24,
 ): PieSlice[] {
   const shares = softmaxShares(scores, temp);
   const order = shares.map((share, index) => ({ share, index }));
@@ -62,6 +62,6 @@ export function topSlices(
     share: entry.share,
     pct: pcts[position],
     score: entry.index === -1 ? null : scores[entry.index],
-    color: entry.index === -1 ? PIE_MUTED_COLOR : pieColor(position),
+    color: entry.index === -1 ? PIE_MUTED_COLOR : pieColor(position, displayed.length),
   }));
 }
