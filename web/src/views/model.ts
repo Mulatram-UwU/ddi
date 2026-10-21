@@ -64,23 +64,28 @@ export async function modelView(ctx: AppContext, slug: string): Promise<HTMLElem
   const range = currentRange();
   const root = html(`
     <div>
-      <p><a href="#/">← ${escapeHtml(t('model.back'))}</a></p>
-      <h1>${escapeHtml(model.name)}</h1>
-      <p class="subtitle">
-        ${escapeHtml(model.provider)}
-        ${
-          model.homepage_url
-            ? ` · <a href="${escapeHtml(model.homepage_url)}" rel="noreferrer noopener" target="_blank">${escapeHtml(t('model.homepage'))}</a>`
-            : ''
-        }
-      </p>
+      <a class="back" href="#/">← ${escapeHtml(t('model.back'))}</a>
+      <header class="hero model-hero">
+        <h1>${escapeHtml(model.name)}</h1>
+        <p class="subtitle">
+          <span class="provider-chip">${escapeHtml(model.provider)}</span>
+          ${
+            model.homepage_url
+              ? `<a href="${escapeHtml(model.homepage_url)}" rel="noreferrer noopener" target="_blank">${escapeHtml(t('model.homepage'))}</a>`
+              : ''
+          }
+        </p>
+      </header>
       ${model.description ? `<p>${escapeHtml(model.description)}</p>` : ''}
 
       <div class="banner error vote-banner" hidden></div>
 
       <section class="card">
         <div class="vote-row">
-          <div class="big-score ${scoreClass(model.score)}">${escapeHtml(formatScore(model.score))}</div>
+          <div class="score-block">
+            <div class="score-label">DDI</div>
+            <div class="big-score ${scoreClass(model.score)}">${escapeHtml(formatScore(model.score))}</div>
+          </div>
           <div class="actions vote-actions">
             <button class="vote vote-up">↑ ${escapeHtml(t('model.vote_up'))}</button>
             <button class="vote vote-down">↓ ${escapeHtml(t('model.vote_down'))}</button>

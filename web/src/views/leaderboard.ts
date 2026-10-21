@@ -43,8 +43,10 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
 
   const root = html(`
     <div>
-      <h1>${escapeHtml(t('home.title'))}</h1>
-      <p class="subtitle">${escapeHtml(t('home.subtitle'))}</p>
+      <header class="hero">
+        <h1>${escapeHtml(t('home.title'))}</h1>
+        <p class="subtitle">${escapeHtml(t('home.subtitle'))}</p>
+      </header>
 
       <section class="card">
         <div class="card-head">
@@ -69,10 +71,11 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
           </select>
           <input class="search" type="search" placeholder="${escapeHtml(t('home.search_placeholder'))}" />
         </div>
-        <table>
+        <div class="table-wrap">
+        <table class="models-table">
           <thead>
             <tr>
-              <th class="num">${escapeHtml(t('home.th_rank'))}</th>
+              <th class="rank">${escapeHtml(t('home.th_rank'))}</th>
               <th>${escapeHtml(t('home.th_model'))}</th>
               <th class="num">${escapeHtml(t('home.th_score'))}</th>
               <th>${escapeHtml(t('home.th_trend'))}</th>
@@ -85,6 +88,7 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
           </thead>
           <tbody></tbody>
         </table>
+        </div>
         <p class="hint table-empty" hidden>${escapeHtml(t('home.empty'))}</p>
       </section>
     </div>
@@ -122,11 +126,6 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
             <span class="swatch" style="background:${slice.color ?? 'var(--muted)'}"></span>
             <span class="legend-name">${escapeHtml(slice.label)}</span>
             <span class="legend-pct">${escapeHtml(slice.pct)}%</span>
-            <span class="legend-score">${
-              slice.score === null
-                ? escapeHtml(t('common.dash'))
-                : `DDI ${escapeHtml(formatScore(slice.score))}`
-            }</span>
           </div>`,
       )
       .join('');
@@ -147,12 +146,16 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
     drawPie(temp);
   });
 
+  const rankOf = new Map(models.map((model, index) => [model, index + 1]));
+
   const rowHtml = (model: ModelJson, rank: number) => `
     <tr>
-      <td class="num">${rank}</td>
-      <td>
-        <a href="#/m/${encodeURIComponent(model.slug)}">${escapeHtml(model.name)}</a>
-        <div class="hint">${escapeHtml(model.provider)}</div>
+      <td class="rank">${
+        rank <= 3 ? `<span class="rank-badge rank-${rank}">${rank}</span>` : rank
+      }</td>
+      <td class="model-cell">
+        <a class="model-name" href="#/m/${encodeURIComponent(model.slug)}">${escapeHtml(model.name)}</a>
+        <span class="provider-chip">${escapeHtml(model.provider)}</span>
       </td>
       <td class="num ${scoreClass(model.score)}">${escapeHtml(formatScore(model.score))}</td>
       <td>${sparkline(model.sparkline, 96, 28)}</td>
@@ -181,7 +184,7 @@ export async function leaderboardView(ctx: AppContext): Promise<HTMLElement> {
       );
     });
     tbody.innerHTML = filtered
-      .map((model) => rowHtml(model, models.indexOf(model) + 1))
+      .map((model) => rowHtml(model, rankOf.get(model) ?? 0))
       .join('');
     emptyRow.hidden = filtered.length > 0;
   };

@@ -19,21 +19,22 @@ export function softmaxShares(scores: number[], temp: number): number[] {
 }
 
 /**
- * Percent strings that sum to exactly 100.0: each share is rounded to a tenth of a point and the
- * rounding residue is pushed onto the largest slice (first one on a tie).
+ * Percent strings (two decimals) that sum to exactly 100.00. Each share is floored to a hundredth
+ * of a point and the leftover hundredths go to the slices with the largest fractional remainder
+ * (largest-remainder method), so equal shares stay within 0.01 of each other instead of one slice
+ * absorbing the whole residue.
  */
 export function formatShares(shares: number[]): string[] {
-  const milli = shares.map((share) => Math.round(share * 1000));
-  let residue = 1000;
-  for (const value of milli) residue -= value;
-  if (residue !== 0 && milli.length > 0) {
-    let largest = 0;
-    for (let index = 1; index < milli.length; index += 1) {
-      if (milli[index] > milli[largest]) largest = index;
-    }
-    milli[largest] += residue;
+  const exact = shares.map((share) => share * 10_000);
+  const hundredths = exact.map((value) => Math.floor(value));
+  let residue = 10_000 - hundredths.reduce((total, value) => total + value, 0);
+  const byRemainder = exact
+    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+  for (let step = 0; step < residue && byRemainder.length > 0; step += 1) {
+    hundredths[byRemainder[step % byRemainder.length].index] += 1;
   }
-  return milli.map((value) => (value / 10).toFixed(1));
+  return hundredths.map((value) => (value / 100).toFixed(2));
 }
 
 export function topSlices(
@@ -41,7 +42,7 @@ export function topSlices(
   scores: number[],
   temp: number,
   otherLabel: (count: number) => string,
-  limit = 10,
+  limit = 24,
 ): PieSlice[] {
   const shares = softmaxShares(scores, temp);
   const order = shares.map((share, index) => ({ share, index }));
@@ -62,6 +63,6 @@ export function topSlices(
     share: entry.share,
     pct: pcts[position],
     score: entry.index === -1 ? null : scores[entry.index],
-    color: entry.index === -1 ? PIE_MUTED_COLOR : pieColor(position),
+    color: entry.index === -1 ? PIE_MUTED_COLOR : pieColor(position, displayed.length),
   }));
 }

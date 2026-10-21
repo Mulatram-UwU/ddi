@@ -53,28 +53,38 @@ function showGlobalError(key: MessageKey): void {
   bannerEl.textContent = t(key);
 }
 
+function setActiveNav(routeName: string): void {
+  const active = routeName === 'model' ? 'leaderboard' : routeName;
+  for (const link of headerEl.querySelectorAll<HTMLAnchorElement>('nav a')) {
+    link.classList.toggle('active', link.dataset.route === active);
+  }
+}
+
 function renderHeader(): void {
   const account = me;
   headerEl.className = 'topbar';
   headerEl.innerHTML = `
-    <a class="brand" href="#/">DDI</a>
-    <nav>
-      <a href="#/">${escapeHtml(t('nav.leaderboard'))}</a>
-      <a href="#/about">${escapeHtml(t('nav.about'))}</a>
-      ${account?.is_admin ? `<a href="#/admin">${escapeHtml(t('nav.admin'))}</a>` : ''}
-    </nav>
-    <div class="spacer"></div>
-    <select class="locale-select" aria-label="${escapeHtml(t('nav.language'))}">
-      ${LOCALE_IDS.map(
-        (id) =>
-          `<option value="${id}"${id === getLocale() ? ' selected' : ''}>${escapeHtml(
-            localeLabel(id),
-          )}</option>`,
-      ).join('')}
-    </select>
-    <div class="who account"></div>
+    <div class="topbar-inner">
+      <a class="brand" href="#/"><img src="/icon.svg" alt="" /><span>DDI</span></a>
+      <nav>
+        <a href="#/" data-route="leaderboard">${escapeHtml(t('nav.leaderboard'))}</a>
+        <a href="#/about" data-route="about">${escapeHtml(t('nav.about'))}</a>
+        ${account?.is_admin ? `<a href="#/admin" data-route="admin">${escapeHtml(t('nav.admin'))}</a>` : ''}
+      </nav>
+      <div class="spacer"></div>
+      <select class="locale-select" aria-label="${escapeHtml(t('nav.language'))}">
+        ${LOCALE_IDS.map(
+          (id) =>
+            `<option value="${id}"${id === getLocale() ? ' selected' : ''}>${escapeHtml(
+              localeLabel(id),
+            )}</option>`,
+        ).join('')}
+      </select>
+      <div class="who account"></div>
+    </div>
   `;
 
+  setActiveNav(parseRoute().name);
   mustFind<HTMLSelectElement>(headerEl, '.locale-select').addEventListener('change', (event) => {
     const value = (event.target as HTMLSelectElement).value;
     if (isLocaleId(value)) setLocale(value);
@@ -145,6 +155,7 @@ async function renderRoute(): Promise<void> {
   removeCaptcha();
   viewEl.innerHTML = `<p class="hint">${escapeHtml(t('common.loading'))}</p>`;
   const route = parseRoute();
+  setActiveNav(route.name);
   try {
     let node: HTMLElement;
     if (route.name === 'model') node = await modelView(ctx, route.slug);
