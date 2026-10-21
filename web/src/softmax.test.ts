@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatShares, softmaxShares, topSlices } from './softmax';
 
 function sumOf(pcts: string[]): number {
-  return Math.round(pcts.reduce((total, pct) => total + Number(pct) * 10, 0));
+  return Math.round(pcts.reduce((total, pct) => total + Number(pct) * 100, 0));
 }
 
 describe('softmaxShares', () => {
@@ -32,16 +32,22 @@ describe('softmaxShares', () => {
 });
 
 describe('formatShares', () => {
-  it('renders the reference shares and sums to exactly 100.0', () => {
+  it('renders the reference shares and sums to exactly 100.00', () => {
     const pcts = formatShares(softmaxShares([30, 0, -30], 10));
-    expect(pcts).toEqual(['95.1', '4.7', '0.2']);
-    expect(sumOf(pcts)).toBe(1000);
+    expect(pcts).toEqual(['95.03', '4.73', '0.24']);
+    expect(sumOf(pcts)).toBe(10000);
   });
 
-  it('absorbs the rounding residue on a seven-way split', () => {
+  it('spreads the rounding residue over the seven-way split', () => {
     const pcts = formatShares(Array.from({ length: 7 }, () => 1 / 7));
-    expect(sumOf(pcts)).toBe(1000);
-    expect(pcts[0]).toBe('14.2');
+    expect(sumOf(pcts)).toBe(10000);
+    expect(pcts).toEqual(['14.29', '14.29', '14.29', '14.29', '14.28', '14.28', '14.28']);
+  });
+
+  it('keeps equal shares within a hundredth of each other', () => {
+    const pcts = formatShares(Array.from({ length: 22 }, () => 1 / 22));
+    expect(sumOf(pcts)).toBe(10000);
+    expect(new Set(pcts)).toEqual(new Set(['4.55', '4.54']));
   });
 });
 
@@ -52,7 +58,7 @@ describe('topSlices', () => {
     const slices = topSlices(['a', 'b'], [30, 0], 10, label);
     expect(slices).toHaveLength(2);
     expect(slices[0].label).toBe('a');
-    expect(slices[0].pct).toBe('95.3');
+    expect(slices[0].pct).toBe('95.26');
     expect(slices[1].score).toBe(0);
   });
 
@@ -64,6 +70,6 @@ describe('topSlices', () => {
     expect(slices[24].label).toBe('others:2');
     expect(slices[24].color).toBe('color-mix(in srgb, var(--muted) 45%, var(--surface))');
     expect(slices[24].score).toBeNull();
-    expect(sumOf(slices.map((slice) => slice.pct))).toBe(1000);
+    expect(sumOf(slices.map((slice) => slice.pct))).toBe(10000);
   });
 });
