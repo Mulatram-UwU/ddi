@@ -24,7 +24,15 @@ export function apiError(
   });
 }
 
+const MAX_JSON_BYTES = 16 * 1024;
+
 export async function readJsonObject(c: Context): Promise<Record<string, unknown> | null> {
+  // Every mutating route expects a small JSON object. Rejecting other content types also kills
+  // cross-site form posts, which cannot set `application/json` without a CORS preflight.
+  const contentType = c.req.header('content-type') ?? '';
+  if (!/^application\/json\s*(;|$)/i.test(contentType.trim())) return null;
+  const declared = Number(c.req.header('content-length') ?? '');
+  if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) return null;
   try {
     const parsed: unknown = await c.req.json();
     if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return null;

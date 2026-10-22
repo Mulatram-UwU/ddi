@@ -7,12 +7,9 @@ import { loadModelBySlug, loadModels } from '../models';
 import type { ModelRow } from '../models';
 import { foldVotes } from '../scoring';
 import type { VoteEvent } from '../scoring';
+import { boundedText, MODEL_LIMITS, parseHomepageUrl } from '../validate';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
-
-function textOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
 
 function flag(value: unknown, fallback: number): number {
   if (value === 0 || value === false || value === '0' || value === 'false') return 0;
@@ -33,11 +30,22 @@ export function adminRoutes(app: Hono<AppBindings>): void {
     const slug = typeof body?.slug === 'string' ? body.slug.trim() : '';
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     const provider = typeof body?.provider === 'string' ? body.provider.trim() : '';
+    const description = boundedText(body?.description, MODEL_LIMITS.description);
+    const homepage = parseHomepageUrl(body?.homepage_url);
     if (!SLUG_RE.test(slug)) {
       return apiError(c, 400, 'INVALID_BODY', 'slug must match ^[a-z0-9][a-z0-9-]{1,63}$.');
     }
     if (name.length === 0 || provider.length === 0) {
       return apiError(c, 400, 'INVALID_BODY', 'name and provider are required.');
+    }
+    if (name.length > MODEL_LIMITS.name || provider.length > MODEL_LIMITS.provider) {
+      return apiError(c, 400, 'INVALID_BODY', 'name or provider is too long.');
+    }
+    if (!description.ok) {
+      return apiError(c, 400, 'INVALID_BODY', 'description is too long.');
+    }
+    if (!homepage.ok) {
+      return apiError(c, 400, 'INVALID_BODY', 'homepage_url must be an absolute http(s) URL.');
     }
 
     const now = new Date().toISOString();
@@ -50,8 +58,8 @@ export function adminRoutes(app: Hono<AppBindings>): void {
           slug,
           name,
           provider,
-          textOrNull(body?.description),
-          textOrNull(body?.homepage_url),
+          description.value,
+          homepage.value,
           flag(body?.is_active, 1),
           now,
         )
@@ -80,15 +88,36 @@ export function adminRoutes(app: Hono<AppBindings>): void {
     const body = await readJsonObject(c);
     if (!body) return apiError(c, 400, 'INVALID_BODY', 'Body must be a JSON object.');
 
+    const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.name;
+    const provider =
+      typeof body.provider === 'string' && body.provider.trim()
+        ? body.provider.trim()
+        : existing.provider;
+    const description =
+      'description' in body
+        ? boundedText(body.description, MODEL_LIMITS.description)
+        : { ok: true, value: existing.description };
+    const homepage =
+      'homepage_url' in body
+        ? parseHomepageUrl(body.homepage_url)
+        : { ok: true, value: existing.homepage_url };
+
+    if (name.length > MODEL_LIMITS.name || provider.length > MODEL_LIMITS.provider) {
+      return apiError(c, 400, 'INVALID_BODY', 'name or provider is too long.');
+    }
+    if (!description.ok) {
+      return apiError(c, 400, 'INVALID_BODY', 'description is too long.');
+    }
+    if (!homepage.ok) {
+      return apiError(c, 400, 'INVALID_BODY', 'homepage_url must be an absolute http(s) URL.');
+    }
+
     const next: ModelRow = {
       ...existing,
-      name: typeof body.name === 'string' && body.name.trim() ? body.name.trim() : existing.name,
-      provider:
-        typeof body.provider === 'string' && body.provider.trim()
-          ? body.provider.trim()
-          : existing.provider,
-      description: 'description' in body ? textOrNull(body.description) : existing.description,
-      homepage_url: 'homepage_url' in body ? textOrNull(body.homepage_url) : existing.homepage_url,
+      name,
+      provider,
+      description: description.value,
+      homepage_url: homepage.value,
       is_active: flag(body.is_active, existing.is_active),
     };
 
