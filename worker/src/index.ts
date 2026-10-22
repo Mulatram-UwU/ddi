@@ -12,12 +12,22 @@ import { snapshotAll } from './snapshot';
 
 const app = new Hono<AppBindings>();
 
-// Bearer tokens travel in the Authorization header (frontend and API live on different
-// registrable domains), so no credentials and no cookie CORS is needed.
 app.use('*', async (c, next) => {
-  c.header('Vary', 'Origin');
   await next();
+  const headers = c.res.headers;
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (c.req.path.startsWith('/api/')) headers.set('Cache-Control', 'no-store');
+  if (new URL(c.req.url).protocol === 'https:') {
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
 });
+
+// Bearer tokens travel in the Authorization header (frontend and API live on different
+// registrable domains), so no credentials and no cookie CORS is needed. Hono's cors middleware
+// also emits `Vary: Origin`, so it is not set by hand.
 app.use(
   '*',
   cors({

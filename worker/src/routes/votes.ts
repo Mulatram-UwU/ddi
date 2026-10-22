@@ -3,8 +3,7 @@ import { eligibility, requireSession } from '../auth';
 import type { AppBindings } from '../auth';
 import { readConfig } from '../config';
 import { apiError, readJsonObject } from '../http';
-import { loadAggregate, loadExtras, loadModelBySlug, serializeModel } from '../models';
-import { decayTo } from '../scoring';
+import { loadExtras, loadModelBySlug, serializeModel } from '../models';
 import { verifyTurnstile } from '../turnstile';
 
 export function voteRoutes(app: Hono<AppBindings>): void {
@@ -30,23 +29,28 @@ export function voteRoutes(app: Hono<AppBindings>): void {
       });
     }
 
+    const cooldownMs = config.voteCooldownHours * 3_600_000;
+    const cooldownError = (nextVoteAt: number) =>
+      apiError(
+        c,
+        429,
+        'VOTE_COOLDOWN',
+        'This account already voted on this model within the cooldown window.',
+        { next_vote_at: new Date(nextVoteAt).toISOString() },
+        { 'Retry-After': String(Math.max(1, Math.ceil((nextVoteAt - now) / 1000))) },
+      );
+
+    // Cheap pre-check first: a user in cooldown gets a 429 without burning a single-use captcha
+    // token. The INSERT below is still the authoritative gate, so parallel requests cannot both
+    // pass this read.
     const latest = await c.env.DB.prepare(
       'SELECT created_at FROM votes WHERE account_id = ? AND model_id = ? ORDER BY created_at DESC LIMIT 1',
     )
       .bind(account.id, row.id)
       .first<{ created_at: string }>();
     if (latest) {
-      const nextVoteAt = Date.parse(latest.created_at) + config.voteCooldownHours * 3_600_000;
-      if (now < nextVoteAt) {
-        return apiError(
-          c,
-          429,
-          'VOTE_COOLDOWN',
-          'This account already voted on this model within the cooldown window.',
-          { next_vote_at: new Date(nextVoteAt).toISOString() },
-          { 'Retry-After': String(Math.ceil((nextVoteAt - now) / 1000)) },
-        );
-      }
+      const nextVoteAt = Date.parse(latest.created_at) + cooldownMs;
+      if (now < nextVoteAt) return cooldownError(nextVoteAt);
     }
 
     // Captcha sits between the cooldown gate and the write: a user who is in cooldown gets the 429
@@ -69,29 +73,84 @@ export function voteRoutes(app: Hono<AppBindings>): void {
       }
     }
 
-    const previous = await loadAggregate(c.env.DB, row.id);
-    const decayed = decayTo(previous, now, config.halfLifeHours);
-    const fresh = {
-      net: decayed.net + value,
-      weight: decayed.weight + 1,
-      up: previous.up + (value === 1 ? 1 : 0),
-      down: previous.down + (value === -1 ? 1 : 0),
-      computedAt: now,
-    };
     const nowIso = new Date(now).toISOString();
+    const cutoffIso = new Date(now - cooldownMs).toISOString();
 
-    await c.env.DB.batch([
-      c.env.DB.prepare(
-        'INSERT INTO votes (account_id, model_id, value, created_at) VALUES (?, ?, ?, ?)',
-      ).bind(account.id, row.id, value, nowIso),
-      c.env.DB.prepare(
+    // Single-statement conditional insert: D1 serialises writes, so the NOT EXISTS sees any vote
+    // committed by a racing request. Without this, N parallel calls all passed the SELECT above.
+    const inserted = await c.env.DB.prepare(
+      `INSERT INTO votes (account_id, model_id, value, created_at)
+       SELECT ?, ?, ?, ?
+       WHERE NOT EXISTS (
+         SELECT 1 FROM votes
+         WHERE account_id = ? AND model_id = ? AND created_at > ?
+       )`,
+    )
+      .bind(account.id, row.id, value, nowIso, account.id, row.id, cutoffIso)
+      .run();
+    if ((inserted.meta.changes ?? 0) === 0) {
+      const raced = await c.env.DB.prepare(
+        'SELECT created_at FROM votes WHERE account_id = ? AND model_id = ? ORDER BY created_at DESC LIMIT 1',
+      )
+        .bind(account.id, row.id)
+        .first<{ created_at: string }>();
+      return cooldownError(
+        raced ? Date.parse(raced.created_at) + cooldownMs : now + cooldownMs,
+      );
+    }
+
+    // Fold the vote into the fast-path row in one UPDATE. Computing the decay from the row's own
+    // computed_at (instead of a value read in JS) keeps concurrent votes for the same model from
+    // overwriting each other's contribution.
+    const halfLifeMs = config.halfLifeHours * 3_600_000;
+    const scoreSql = `UPDATE model_scores
+       SET net = net * pow(2, -((julianday(?) - julianday(computed_at)) * 86400000.0) / ?) + ?,
+           weight = weight * pow(2, -((julianday(?) - julianday(computed_at)) * 86400000.0) / ?) + 1,
+           up = up + ?,
+           down = down + ?,
+           computed_at = ?
+       WHERE model_id = ?
+       RETURNING net, weight, up, down, computed_at`;
+    const bindScore = (statement: D1PreparedStatement) =>
+      statement.bind(
+        nowIso,
+        halfLifeMs,
+        value,
+        nowIso,
+        halfLifeMs,
+        value === 1 ? 1 : 0,
+        value === -1 ? 1 : 0,
+        nowIso,
+        row.id,
+      );
+    interface ScoredRow {
+      net: number;
+      weight: number;
+      up: number;
+      down: number;
+      computed_at: string;
+    }
+    let scored = await bindScore(c.env.DB.prepare(scoreSql)).first<ScoredRow>();
+    if (!scored) {
+      // A registry row inserted outside the admin route may lack its score row; create the zero
+      // baseline, then fold the vote into it.
+      await c.env.DB.prepare(
         `INSERT INTO model_scores (model_id, net, weight, up, down, computed_at)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(model_id) DO UPDATE SET
-           net = excluded.net, weight = excluded.weight, up = excluded.up,
-           down = excluded.down, computed_at = excluded.computed_at`,
-      ).bind(row.id, fresh.net, fresh.weight, fresh.up, fresh.down, nowIso),
-    ]);
+         VALUES (?, 0, 0, 0, 0, ?) ON CONFLICT(model_id) DO NOTHING`,
+      )
+        .bind(row.id, nowIso)
+        .run();
+      scored = await bindScore(c.env.DB.prepare(scoreSql)).first<ScoredRow>();
+    }
+    if (!scored) return apiError(c, 500, 'INTERNAL', 'Could not update the score row.');
+
+    const fresh = {
+      net: scored.net,
+      weight: scored.weight,
+      up: scored.up,
+      down: scored.down,
+      computedAt: Date.parse(scored.computed_at),
+    };
 
     const extras = await loadExtras(c.env.DB, row.id, now, config, account.id);
     return c.json({ model: serializeModel(row, fresh, extras, now, config) });
